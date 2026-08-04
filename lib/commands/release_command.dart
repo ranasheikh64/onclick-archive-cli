@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:jronix/utils/pubspec_manager.dart';
 import 'package:jronix/utils/shell.dart';
+import 'package:jronix/utils/logger.dart';
 import 'package:path/path.dart' as p;
 
 class ReleaseCommand extends Command {
@@ -16,47 +17,64 @@ class ReleaseCommand extends Command {
     final pubspecPath = p.join(currentDir, 'pubspec.yaml');
     final iosDir = p.join(currentDir, 'ios');
 
-    print('══════════════════════════════════════');
-    print('🚀 Preparing iOS Release...');
-    print('══════════════════════════════════════\n');
+    logger.info(lightCyan.wrap('══════════════════════════════════════'));
+    logger.info(lightCyan.wrap('🚀 Preparing iOS Release...'));
+    logger.info(lightCyan.wrap('══════════════════════════════════════\n'));
 
     try {
       // 1. Increment Version
-      print('📦 Updating Version...');
+      final versionProgress = logger.progress('📦 Updating Version...');
       incrementVersion(pubspecPath);
+      versionProgress.complete('📦 Version Updated Successfully');
 
       // 2. Flutter Clean
-      print('\n🧹 Cleaning Flutter Project...');
-      await runCommand('flutter', ['clean']);
+      await runCommand(
+        'flutter', 
+        ['clean'], 
+        progressMessage: '🧹 Cleaning Flutter Project...',
+      );
 
       // 3. Flutter Pub Get
-      print('\n📦 Getting Flutter Packages...');
-      await runCommand('flutter', ['pub', 'get']);
+      await runCommand(
+        'flutter', 
+        ['pub', 'get'], 
+        progressMessage: '📦 Getting Flutter Packages...',
+      );
       
-      // 4. Flutter Precache IOS (optional but helpful)
-      print('\n🍏 Precaching iOS artifacts...');
-      await runCommand('flutter', ['precache', '--ios']);
+      // 4. Flutter Precache IOS
+      await runCommand(
+        'flutter', 
+        ['precache', '--ios'], 
+        progressMessage: '🍏 Precaching iOS artifacts...',
+      );
 
       // 5. Pod Install
       if (Directory(iosDir).existsSync()) {
-        print('\n🍎 Installing CocoaPods...');
-        await runCommand('pod', ['install', '--repo-update'], workingDirectory: iosDir);
+        await runCommand(
+          'pod', 
+          ['install', '--repo-update'], 
+          workingDirectory: iosDir,
+          progressMessage: '🍎 Installing CocoaPods...',
+        );
       } else {
-        print('\n⚠️ iOS directory not found. Skipping pod install.');
+        logger.warn('⚠️ iOS directory not found. Skipping pod install.');
       }
 
       // 6. Open Xcode
       final workspacePath = p.join(iosDir, 'Runner.xcworkspace');
       if (Directory(workspacePath).existsSync()) {
-        print('\n🚀 Opening Xcode...');
-        await runCommand('open', [workspacePath]);
+        await runCommand(
+          'open', 
+          [workspacePath],
+          progressMessage: '🚀 Opening Xcode...',
+        );
       } else {
-        print('\n⚠️ Runner.xcworkspace not found. Skipping Xcode open.');
+        logger.warn('⚠️ Runner.xcworkspace not found. Skipping Xcode open.');
       }
 
-      print('\n✅ Project Ready! You can now Archive from Xcode.');
+      logger.success('\n✅ Project Ready! You can now Archive from Xcode.');
     } catch (e) {
-      print('\n❌ Error during release preparation: $e');
+      logger.err('\n❌ Error during release preparation: $e');
       exit(1);
     }
   }
